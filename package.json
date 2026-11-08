@@ -1,0 +1,48 @@
+{
+  "name": "com.enlu.sdk",
+  "displayName": "ENLU SDK",
+  "version": "1.0.0",
+  "unity": "2021.3",
+  "description": "Client, dedicated-server and Editor SDK for ENLU WebService: player accounts, player and title data, statistics and leaderboards, events, cloud functions, match server allocation, the game server SDK (GSDK) for servers on ENLU fleets, and secure developer sign-in from the Unity Editor. Works on every platform including WebGL. No third-party dependencies.",
+  "keywords": [
+    "enlu",
+    "backend",
+    "backend-as-a-service",
+    "multiplayer",
+    "dedicated server",
+    "game server",
+    "gsdk",
+    "matchmaking",
+    "leaderboards",
+    "player data",
+    "cloud functions",
+    "webgl"
+  ],
+  "author": {
+    "name": "ENLU"
+  },
+  "license": "Apache-2.0",
+  "documentationUrl": "https://github.com/OlumideOsuntuyi/ENLU-Unity-SDK/blob/main/Documentation~/index.md",
+  "changelogUrl": "https://github.com/OlumideOsuntuyi/ENLU-Unity-SDK/blob/main/CHANGELOG.md",
+  "licensesUrl": "https://github.com/OlumideOsuntuyi/ENLU-Unity-SDK/blob/main/LICENSE.md",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/OlumideOsuntuyi/ENLU-Unity-SDK.git"
+  },
+  "dependencies": {
+    "com.unity.modules.jsonserialize": "1.0.0",
+    "com.unity.modules.unitywebrequest": "1.0.0"
+  },
+  "samples": [
+    {
+      "displayName": "Client Quick Start",
+      "description": "Log in with the device id, save data, submit a score, show a leaderboard, call a cloud function and request a match server.",
+      "path": "Samples~/ClientQuickStart"
+    },
+    {
+      "displayName": "Dedicated Server",
+      "description": "A dedicated server using the game server SDK (GSDK), with a Dockerfile and a workload spec for an ENLU game-server fleet.",
+      "path": "Samples~/DedicatedServer"
+    }
+  ]
+}

@@ -1,0 +1,53 @@
+# Unity (when the package is opened inside a project or built locally)
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+[Mm]emoryCaptures/
+*.pidb.meta
+*.pdb.meta
+*.mdb.meta
+sysinfo.txt
+crashlytics-build.properties
+
+# IDEs and tools
+.vs/
+.vscode/
+.idea/
+.gradle/
+*.csproj
+*.sln
+*.slnx
+*.suo
+*.user
+*.userprefs
+*.unityproj
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+ExportedObj/
+.consulo/
+*.swp
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Secrets: never commit tokens or keys
+*.token
+.env
+.env.*
+*.pem
+*.key
+
+# Packed releases
+*.tgz

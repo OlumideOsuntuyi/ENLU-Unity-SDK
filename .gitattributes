@@ -1,0 +1,36 @@
+* text=auto
+
+# Unity metadata and serialized assets: always LF so GUID-bearing files diff cleanly everywhere.
+*.meta text eol=lf
+*.asmdef text eol=lf
+*.asset text eol=lf
+*.cs text diff=csharp
+*.md text
+*.json text
+
+# Binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.psd binary
+*.tga binary
+*.tif binary
+*.exr binary
+*.hdr binary
+*.ico binary
+*.ttf binary
+*.otf binary
+*.wav binary
+*.mp3 binary
+*.ogg binary
+*.mp4 binary
+*.fbx binary
+*.dll binary
+*.so binary
+*.dylib binary
+*.bundle binary
+*.unitypackage binary
+*.zip binary
+*.tgz binary
+*.pdf binary
