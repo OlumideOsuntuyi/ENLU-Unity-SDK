@@ -9,8 +9,7 @@ using UnityEngine;
 namespace Enlu
 {
     /// <summary>
-    /// The game server SDK (GSDK) for dedicated servers hosted on ENLU fleets, with the same lifecycle
-    /// as PlayFab's GSDK:
+    /// The game server SDK (GSDK) for dedicated servers hosted on ENLU fleets. The lifecycle:
     /// <list type="number">
     /// <item><see cref="Start"/> as early as possible (state <c>Initializing</c>, heartbeats every second).</item>
     /// <item>Load your map, open your listen socket on <see cref="GetContainerPort"/>, then call

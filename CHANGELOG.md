@@ -23,7 +23,7 @@ First public release.
 - `EnluServerApi` for dedicated servers and trusted backends (API key from `ENLU_API_KEY`):
   allocations, player data with server authority, statistics, events, functions, leaderboards and
   title data.
-- `EnluGameServer`: the game server SDK (GSDK) with the PlayFab-style lifecycle (`Start`,
+- `EnluGameServer`: the game server SDK (GSDK) with its server lifecycle (`Start`,
   `ReadyForPlayers`, `OnAllocated`, `WaitForAllocationAsync`, `UpdateConnectedPlayers`,
   `OnHealthCheck`, `OnShutdown`, `Shutdown`), heartbeats on a background thread, events on the main
   thread, port and environment helpers, and a local mode for the Editor.

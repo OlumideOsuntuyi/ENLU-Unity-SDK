@@ -16,7 +16,7 @@
 - **Events**: single, batched, and an offline queue that flushes itself.
 - **Cloud functions**: call JavaScript handlers on the server with typed results.
 - **Match servers**: request a server from the client, or allocate from your backend.
-- **Dedicated server SDK (GSDK)**: the PlayFab-style lifecycle (`ReadyForPlayers`, `OnAllocated`, health and shutdown) for servers on ENLU fleets, with a local mode in the Editor.
+- **Dedicated server SDK (GSDK)**: a simple server lifecycle (`ReadyForPlayers`, `OnAllocated`, health and shutdown) for servers on ENLU fleets, with a local mode in the Editor.
 - **Sign in from the Editor**: browser sign-in (OAuth + PKCE) and a window to manage apps, statistics, title data, scripts and fleets.
 - **Runs everywhere**: `UnityWebRequest` and `async`/`await`, WebGL-safe, no third-party dependencies (no Newtonsoft).
 - **Secure by default**: tickets and tokens are never logged, the OS credential store holds Editor tokens, and API keys stay out of client builds.
