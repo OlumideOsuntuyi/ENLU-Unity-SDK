@@ -155,6 +155,66 @@ namespace Enlu.Editor
             return Obj("POST", A(app) + "/workloads/" + S(name) + "/scale", body, ct);
         }
 
+        /* -------------------------------- economy -------------------------------- */
+
+        /// <summary><c>GET /v1/apps/:app/currencies</c>.</summary>
+        public Task<List<Dictionary<string, object?>>> ListCurrenciesAsync(string app, CancellationToken ct = default) =>
+            List(A(app) + "/currencies", "currencies", ct);
+
+        /// <summary>Creates a currency (<c>POST</c>) or, when <paramref name="exists"/>, updates it (<c>PUT /currencies/:code</c>).</summary>
+        public Task<Dictionary<string, object?>> SaveCurrencyAsync(string app, string code, string name, long initial, long? max, bool exists, CancellationToken ct = default)
+        {
+            var body = new Dictionary<string, object?> { ["name"] = name, ["initial"] = initial, ["max"] = max };
+            if (exists) return Obj("PUT", A(app) + "/currencies/" + S(code), body, ct);
+            body["code"] = code;
+            return Obj("POST", A(app) + "/currencies", body, ct);
+        }
+
+        /// <summary><c>GET /v1/apps/:app/catalog</c>.</summary>
+        public Task<List<Dictionary<string, object?>>> ListCatalogAsync(string app, CancellationToken ct = default) =>
+            List(A(app) + "/catalog", "items", ct);
+
+        /// <summary>
+        /// Creates (<c>POST /catalog</c>) or updates (<c>PUT /catalog/:item</c>) a simple item with one price.
+        /// When updating, fields not set here (bundle, data, tags…) are kept from <paramref name="existing"/>.
+        /// </summary>
+        public Task<Dictionary<string, object?>> SaveSimpleItemAsync(string app, string itemId, string name, string currency, long price,
+            bool stackable, bool consumable, Dictionary<string, object?>? existing, CancellationToken ct = default)
+        {
+            var body = existing != null ? new Dictionary<string, object?>(existing, StringComparer.Ordinal) : new Dictionary<string, object?>();
+            body.Remove("itemId");
+            body["name"] = name;
+            body["prices"] = new Dictionary<string, object?> { [currency] = price };
+            body["stackable"] = stackable;
+            body["consumable"] = consumable;
+            if (!body.ContainsKey("enabled")) body["enabled"] = true;
+            if (existing != null) return Obj("PUT", A(app) + "/catalog/" + S(itemId), body, ct);
+            body["itemId"] = itemId;
+            return Obj("POST", A(app) + "/catalog", body, ct);
+        }
+
+        /// <summary>Finds a player: an id (<c>pl_…</c>) is used as is, anything else is searched (custom id, email, name).</summary>
+        public async Task<string?> FindPlayerIdAsync(string app, string idOrSearch, CancellationToken ct = default)
+        {
+            var q = idOrSearch.Trim();
+            if (q.StartsWith("pl_", StringComparison.Ordinal)) return q;
+            var r = await Obj("GET", A(app) + "/players?limit=1&q=" + Uri.EscapeDataString(q), null, ct);
+            var first = EnluJson.GetArray(r, "players");
+            return first != null && first.Count > 0 ? EnluJson.GetString(EnluJson.AsObject(first[0]), "id") : null;
+        }
+
+        /// <summary><c>POST /v1/apps/:app/players/:player/inventory/grant</c>.</summary>
+        public Task<Dictionary<string, object?>> GrantAsync(string app, string playerId, string? itemId, int itemCount, string? currency, long amount,
+            string note, CancellationToken ct = default)
+        {
+            var body = new Dictionary<string, object?> { ["note"] = note };
+            if (!string.IsNullOrEmpty(itemId))
+                body["items"] = new List<object?> { new Dictionary<string, object?> { ["itemId"] = itemId, ["count"] = itemCount } };
+            if (!string.IsNullOrEmpty(currency) && amount != 0)
+                body["currencies"] = new Dictionary<string, object?> { [currency!] = amount };
+            return Obj("POST", A(app) + "/players/" + S(playerId) + "/inventory/grant", body, ct);
+        }
+
         /// <summary>Counts live instances of a workload view by state (running, standby, allocated…).</summary>
         public static Dictionary<string, int> CountInstances(Dictionary<string, object?> workload)
         {

@@ -4,6 +4,28 @@ All notable changes to the ENLU SDK for Unity are listed here. The format follow
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the package uses
 [semantic versioning](https://semver.org/).
 
+## [1.1.0] - 2026-11-11
+
+### Added
+
+- Economy on `EnluClient`:
+  - Calls: `GetCatalogAsync(storeId)`, `GetCurrenciesAsync`, `GetInventoryAsync`, `PurchaseItemAsync`, `ConsumeItemAsync`, `ValidateReceiptAsync` and `GetAchievementsAsync`.
+  - Typed models: `CatalogItem`, `Currency`, `Inventory`, `ItemInstance`, `PurchaseResult`, `ConsumeResult`, `ReceiptResult` and `AchievementProgress`.
+  - Purchases with virtual currency are never retried after network errors (they are not idempotent). Receipt validation is retried, because the server deduplicates by transaction id.
+- `EnluException` helpers for economy errors: `IsInsufficientFunds`, `IsPriceChanged` (with `NewPrice` from the details) and `IsLimitReached`.
+- Economy on `EnluServerApi`:
+  - Inventory and grants: `GetInventoryAsync`, `GrantAsync`, `AddCurrencyAsync`, `ConsumeAsync`, `RevokeAsync`, `TransferAsync` and `PurchaseForPlayerAsync`.
+  - Achievements and segments: `UnlockAchievementAsync`, `GetPlayerAchievementsAsync` and `GetPlayerSegmentsAsync`.
+- `EnluStoreReceipt.Parse`: reads Unity IAP's unified receipt into the provider and receipt value ENLU expects (Google purchase token, Apple transaction id, fake store as `test`).
+- Optional `Enlu.Purchasing` assembly, compiled only when Unity IAP 4.x (`com.unity.purchasing`) is installed. It provides `ValidateAsync(Product)` and `ValidateAndConfirmAsync(controller, product)`, which confirms a pending purchase only after ENLU validates it.
+- Account window: an **Economy** section with currencies, a simple catalog item editor and a grant-to-player tester.
+- Sample: **Economy**, with a wallet, a shop, purchases with error toasts, an inventory with consume, and achievements.
+- Tests for the economy models, error helpers, request bodies, retry rules and receipt parsing.
+
+### Fixed
+
+- The package samples (**Client Quick Start**, **Dedicated Server** and **Economy**) are now included. Version 1.0.0 listed them in `package.json`, but the `Samples~` folder was left out of the repository, so *Import* in the Package Manager found nothing.
+
 ## [1.0.0] - 2026-11-08
 
 First public release.

@@ -3,7 +3,7 @@
 **Accounts, cloud data, leaderboards, cloud functions and dedicated game servers for Unity, on your own ENLU WebService.**
 
 [![Unity 2021.3+](https://img.shields.io/badge/Unity-2021.3%2B-000000?logo=unity&logoColor=white)](https://unity.com/releases/editor/archive)
-[![UPM](https://img.shields.io/badge/UPM-com.enlu.sdk%201.0.0-2f74c0)](https://github.com/OlumideOsuntuyi/ENLU-Unity-SDK/releases)
+[![UPM](https://img.shields.io/badge/UPM-com.enlu.sdk%201.1.0-2f74c0)](https://github.com/OlumideOsuntuyi/ENLU-Unity-SDK/releases)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE.md)
 
 ---
@@ -14,6 +14,7 @@
 - **Cloud data**: per-player data (private, public, server-owned) and game-wide title data.
 - **Statistics and leaderboards**: max/min/sum/last aggregation, periodic resets, top-N and around-me.
 - **Events**: single, batched, and an offline queue that flushes itself.
+- **Economy**: virtual currencies (with energy-style recharge), a catalog and stores, inventories, purchases, store receipt validation for Google Play and the App Store, and achievements.
 - **Cloud functions**: call JavaScript handlers on the server with typed results.
 - **Match servers**: request a server from the client, or allocate from your backend.
 - **Dedicated server SDK (GSDK)**: a simple server lifecycle (`ReadyForPlayers`, `OnAllocated`, health and shutdown) for servers on ENLU fleets, with a local mode in the Editor.
@@ -47,7 +48,7 @@ https://github.com/OlumideOsuntuyi/ENLU-Unity-SDK.git
 A pinned release (recommended for production):
 
 ```
-https://github.com/OlumideOsuntuyi/ENLU-Unity-SDK.git#v1.0.0
+https://github.com/OlumideOsuntuyi/ENLU-Unity-SDK.git#v1.1.0
 ```
 
 ### `manifest.json`
@@ -55,7 +56,7 @@ https://github.com/OlumideOsuntuyi/ENLU-Unity-SDK.git#v1.0.0
 ```json
 {
   "dependencies": {
-    "com.enlu.sdk": "https://github.com/OlumideOsuntuyi/ENLU-Unity-SDK.git#v1.0.0"
+    "com.enlu.sdk": "https://github.com/OlumideOsuntuyi/ENLU-Unity-SDK.git#v1.1.0"
   }
 }
 ```
@@ -113,6 +114,7 @@ Once signed in you can:
 | Statistics | List and define statistics (aggregation, reset period, sort, client-writable). |
 | Title data | Load, edit as JSON and save game-wide configuration (internal keys stay internal). |
 | Cloud scripts | Push a `.js` file as the live revision; run any function with JSON arguments and see result, logs and time. |
+| Economy | List currencies and catalog items, create or edit simple items (one price, stackable, consumable), grant to a player. |
 | Dedicated server fleet | Create or update a `game-server` workload from an image tag, port and fleet size; scale it. |
 
 Actions your team role does not allow show the server's message instead. Details and the security
@@ -136,6 +138,12 @@ model: [Documentation~/editor-sign-in.md](Documentation~/editor-sign-in.md).
 | `WriteEventAsync` / `WriteEventsAsync` / `QueueEvent` + `FlushAsync` | `POST events` |
 | `ExecuteFunctionAsync<T>(name, args)` | `POST functions/:fn` → `FunctionResult<T>` |
 | `RequestSessionAsync(workload, regions, metadata)` | `POST sessions` → `SessionAllocation` |
+| `GetCurrenciesAsync()` / `GetCatalogAsync(storeId)` | `GET currencies` / `GET catalog` → `Currency`, `CatalogItem` |
+| `GetInventoryAsync()` | `GET inventory` → `Inventory` (items and balances) |
+| `PurchaseItemAsync(itemId, currency, price, storeId, count)` | `POST purchase` → `PurchaseResult` (never auto-retried after network errors) |
+| `ConsumeItemAsync(instanceId, count)` | `POST inventory/:instance/consume` → `ConsumeResult` |
+| `ValidateReceiptAsync(provider, productId, receipt)` | `POST purchases/validate` → `ReceiptResult` (safe to retry) |
+| `GetAchievementsAsync()` | `GET achievements` → `AchievementProgress` |
 
 Also: `IsLoggedIn`, `PlayerId`, `SessionExpiresAt`, `PendingEventCount`, and the events `LoggedIn`,
 `LoggedOut` and `SessionExpired`. Every method accepts a `CancellationToken`.
@@ -165,6 +173,99 @@ The SDK retries with exponential backoff, honouring `Retry-After`:
 - **503** and network errors only on idempotent calls (reads, data writes, logins) and on match server requests.
 
 Statistics, events, functions and registration never run twice.
+
+## Economy
+
+Everything is server-authoritative. Balances and inventories change atomically on the server, and
+every change is written to the economy ledger. Set up currencies and items in the dashboard or in
+**Tools > ENLU > Account > Economy**.
+
+### Currencies and catalog
+
+```csharp
+List<Currency> currencies = await enlu.GetCurrenciesAsync();   // e.g. GD "Gold", EN "Energy" (recharges per hour)
+List<CatalogItem> shop = await enlu.GetCatalogAsync();          // or GetCatalogAsync("summer") for a store's sale prices
+Inventory inv = await enlu.GetInventoryAsync();
+Debug.Log($"Gold: {inv.GetBalance("GD")}, potions: {inv.CountOf("potion.small")}");
+```
+
+A `CatalogItem` has `Prices` (by currency code), `Stackable`, `Uses`, `ExpiresSeconds`, `Consumable`,
+`LimitPerPlayer`, an optional `Bundle` (buying it grants the contents), and your own `Data`.
+
+### Buying with virtual currency
+
+Send the price the player saw. If it changed, the server refuses instead of charging a different amount:
+
+```csharp
+try
+{
+    PurchaseResult r = await enlu.PurchaseItemAsync("sword.iron", "GD", 250);
+    Debug.Log($"Gold left: {r.Currencies["GD"]}");
+}
+catch (EnluException e) when (e.IsInsufficientFunds) { ShowToast("Not enough gold"); }
+catch (EnluException e) when (e.IsPriceChanged)      { ShowToast($"New price: {e.NewPrice}"); }
+catch (EnluException e) when (e.IsLimitReached)      { ShowToast("You already own the maximum"); }
+catch (EnluException e) when (e.IsNetworkError)      { await enlu.GetInventoryAsync(); /* did it go through? */ }
+
+ConsumeResult used = await enlu.ConsumeItemAsync(potion.InstanceId);   // consumable items only
+```
+
+> Purchases are **not idempotent**, so the SDK never retries them automatically after a network error.
+> Reload the inventory before offering to buy again.
+
+### Real-money purchases (Unity IAP)
+
+Register IAP products in ENLU under their **store SKU** (product id → items and currencies to grant), and enable Google Play
+and/or the App Store in the app's purchase settings. Then validate every purchase with ENLU and
+**confirm it with the store only after ENLU accepts it**. ENLU processes each transaction once, so
+re-sending a receipt is safe.
+
+With Unity IAP 4.x installed, the optional `Enlu.Purchasing` assembly turns on automatically:
+
+```csharp
+using Enlu.Purchasing;
+using UnityEngine.Purchasing;
+
+public PurchaseProcessingResult ProcessPurchase(PurchaseEventArgs e)
+{
+    // Grants the product's contents, then calls ConfirmPendingPurchase only if ENLU validated it.
+    _ = EnluClient.Default.ValidateAndConfirmAsync(storeController, e.purchasedProduct);
+    return PurchaseProcessingResult.Pending;   // stays pending until ENLU says "validated"
+}
+```
+
+If validation cannot reach the server, the purchase stays pending and Unity IAP delivers it again on
+the next launch. The helper sends `definition.storeSpecificId` as the product id; pass `enluProductId` to override.
+Without the helper (or with Unity IAP 5), read the unified receipt yourself:
+
+```csharp
+var parsed = EnluStoreReceipt.Parse(unifiedReceiptJson);   // Google: purchaseToken, Apple: transactionID
+if (parsed is { } p) await enlu.ValidateReceiptAsync(p.Provider, productId, p.Receipt);
+```
+
+For editor testing, enable the app's `test` provider and call
+`ValidateReceiptAsync("test", "gems_500", "any-unique-id")` (receipts starting with `fail` are rejected).
+Unity's fake store maps to `test` automatically. Errors to handle: `IsReceiptUsed` (another player claimed it),
+`IsPurchasesNotConfigured` and `IsStoreUnavailable` (502, try later). A re-sent receipt returns
+`Duplicate == true` and grants nothing.
+
+### Achievements
+
+```csharp
+foreach (var a in await enlu.GetAchievementsAsync())
+    Debug.Log($"{a.Name}: {a.Progress:P0} {(a.IsUnlocked ? "unlocked" : "")}");
+```
+
+Achievements progress automatically from statistics and events (or are unlocked by your server with
+`EnluServerApi.UnlockAchievementAsync`), and grant their rewards once.
+
+### Server side
+
+`EnluServerApi` (API key with the `economy` scope) adds:
+- inventory changes: `GetInventoryAsync`, `GrantAsync`, `AddCurrencyAsync`, `ConsumeAsync`, `RevokeAsync`, `TransferAsync` and `PurchaseForPlayerAsync`;
+- player state: `UnlockAchievementAsync`, `GetPlayerAchievementsAsync` and `GetPlayerSegmentsAsync`.
+
+Use them from dedicated servers and backends for loot, match rewards, trading and live-ops.
 
 ## Dedicated servers (GSDK)
 
@@ -299,6 +400,7 @@ In **Window > Package Manager**, select **ENLU SDK**, open the **Samples** tab a
 |---|---|
 | Client Quick Start | A MonoBehaviour that logs in, saves and loads data, submits a score, shows the leaderboard, calls a cloud function, queues events and requests a match server, with an on-screen log. |
 | Dedicated Server | A GSDK server lifecycle component, the Dockerfile and `workload.json`. |
+| Economy | Wallet balances, a shop from the catalog, purchases with error toasts, an inventory with consume, and achievement progress. |
 
 ## WebGL notes
 
@@ -318,6 +420,9 @@ In **Window > Package Manager**, select **ENLU SDK**, open the **Samples** tab a
 | 404 "App not found." | Wrong app name or id. |
 | 403 on `UpdateStatisticAsync` | The statistic is undefined or not client-writable. |
 | 403 on `RequestSessionAsync` | Client allocations are off for the app; allocate from your backend. |
+| 409 `price_changed` on a purchase | The catalog changed; reload it and show `e.NewPrice` before buying again. |
+| Receipt `rejected` | Check the app's purchase settings (package name or bundle id, service account / App Store key) and that the ENLU IAP product id matches. |
+| `Enlu.Purchasing` types not found | The helper compiles only with Unity IAP 4.x installed; with IAP 5 use `EnluStoreReceipt.Parse`. |
 | 503 `unavailable` on allocation | No standby server yet: raise `fleet.standby`, and check that servers call `ReadyForPlayers()`. |
 | Servers restart in a loop | Call `EnluGameServer.Start()` early, and raise `health.graceSeconds`. |
 | "Insecure connection not allowed" | Unity 2022+ blocks plain HTTP. Use `https://`, or for a local server set **Player > Allow downloads over HTTP**. |

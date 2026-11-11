@@ -1,0 +1,20 @@
+{
+  "name": "arena",
+  "spec": {
+    "kind": "game-server",
+    "runtime": "docker",
+    "image": "registry.example.com/my-game/arena:1.0.0",
+    "ports": [
+      { "name": "game", "container": 7777, "protocol": "udp", "public": true }
+    ],
+    "resources": { "cpu": 1, "memoryMB": 1024 },
+    "regions": ["eu-west", "us-east"],
+    "fleet": { "standby": 2, "maxServers": 20 },
+    "health": { "type": "gsdk", "graceSeconds": 60, "intervalSeconds": 10, "failuresBeforeRestart": 3 },
+    "env": {
+      "ENLU_API_URL": "https://api.example.com",
+      "ENLU_API_KEY": "${secret:GAME_SERVER_API_KEY}"
+    },
+    "stopTimeoutSeconds": 30
+  }
+}

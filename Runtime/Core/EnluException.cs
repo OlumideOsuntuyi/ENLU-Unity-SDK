@@ -14,7 +14,9 @@ namespace Enlu
     /// <c>conflict</c> (409), <c>rate_limited</c> (429), <c>unavailable</c> (503, e.g. no standby
     /// server yet). The SDK adds <c>network_error</c> and <c>timeout</c> (HttpStatus 0),
     /// <c>bad_response</c> (the server answered with something that is not the expected JSON) and
-    /// <c>not_logged_in</c> (a player call was made before logging in).
+    /// <c>not_logged_in</c> (a player call was made before logging in). Economy calls add
+    /// <c>insufficient_funds</c>, <c>price_changed</c>, <c>limit_reached</c>, <c>receipt_used</c> and
+    /// <c>purchases_not_configured</c> (409), and <c>store_unavailable</c> (502).
     /// </remarks>
     public class EnluException : Exception
     {
@@ -45,6 +47,37 @@ namespace Enlu
 
         /// <summary>True when the player must log in again (expired or missing session).</summary>
         public bool IsUnauthorized => HttpStatus == 401 || Code == "not_logged_in";
+
+        /// <summary>Economy: the player cannot afford the purchase (409 <c>insufficient_funds</c>).</summary>
+        public bool IsInsufficientFunds => Code == "insufficient_funds";
+
+        /// <summary>
+        /// Economy: the price the client sent is no longer the price (409 <c>price_changed</c>).
+        /// <see cref="NewPrice"/> has the current price; refresh the catalog and ask the player again.
+        /// </summary>
+        public bool IsPriceChanged => Code == "price_changed";
+
+        /// <summary>Economy: the player already owns or bought the most allowed (409 <c>limit_reached</c>).</summary>
+        public bool IsLimitReached => Code == "limit_reached";
+
+        /// <summary>Receipts: this store purchase was already claimed by another player (409 <c>receipt_used</c>).</summary>
+        public bool IsReceiptUsed => Code == "receipt_used";
+
+        /// <summary>Receipts: the app's Google Play or App Store settings are missing or rejected (409 <c>purchases_not_configured</c>).</summary>
+        public bool IsPurchasesNotConfigured => Code == "purchases_not_configured";
+
+        /// <summary>Receipts: Google Play or the App Store did not answer (502 <c>store_unavailable</c>); try again later.</summary>
+        public bool IsStoreUnavailable => Code == "store_unavailable";
+
+        /// <summary>For <see cref="IsPriceChanged"/>: the current price from <c>details.price</c>, or null.</summary>
+        public long? NewPrice
+        {
+            get
+            {
+                var d = Details as Dictionary<string, object?>;
+                return d != null && EnluJson.IsNumber(EnluJson.Get(d, "price")) ? EnluJson.GetLong(d, "price") : (long?)null;
+            }
+        }
 
         /// <summary>True when retrying later may succeed (429, 503 or network errors).</summary>
         public bool IsTransient => HttpStatus == 429 || HttpStatus == 503 || IsNetworkError;

@@ -1,9 +1,9 @@
 {
   "name": "com.enlu.sdk",
   "displayName": "ENLU SDK",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "unity": "2021.3",
-  "description": "Client, dedicated-server and Editor SDK for ENLU WebService: player accounts, player and title data, statistics and leaderboards, events, cloud functions, match server allocation, the game server SDK (GSDK) for servers on ENLU fleets, and secure developer sign-in from the Unity Editor. Works on every platform including WebGL. No third-party dependencies.",
+  "description": "Client, dedicated-server and Editor SDK for ENLU WebService: player accounts, player and title data, statistics and leaderboards, events, cloud functions, an in-game economy (currencies, catalog, inventory, store receipts, achievements), match server allocation, the game server SDK (GSDK) for servers on ENLU fleets, and secure developer sign-in from the Unity Editor. Works on every platform including WebGL. No third-party dependencies.",
   "keywords": [
     "enlu",
     "backend",
@@ -16,7 +16,12 @@
     "leaderboards",
     "player data",
     "cloud functions",
-    "webgl"
+    "webgl",
+    "economy",
+    "inventory",
+    "virtual currency",
+    "in-app purchases",
+    "achievements"
   ],
   "author": {
     "name": "ENLU"
@@ -43,6 +48,11 @@
       "displayName": "Dedicated Server",
       "description": "A dedicated server using the game server SDK (GSDK), with a Dockerfile and a workload spec for an ENLU game-server fleet.",
       "path": "Samples~/DedicatedServer"
+    },
+    {
+      "displayName": "Economy",
+      "description": "Wallet balances, a shop from the catalog, purchases with error handling, an inventory with consume, and achievement progress.",
+      "path": "Samples~/Economy"
     }
   ]
 }

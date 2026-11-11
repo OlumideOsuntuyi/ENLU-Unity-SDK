@@ -27,7 +27,7 @@ namespace Enlu.Editor
         [SerializeField] private string serverUrl = string.Empty;
         [SerializeField] private string selectedApp = string.Empty;
         [SerializeField] private Vector2 scroll;
-        [SerializeField] private bool showWorkloads = true, showStats, showTitleData, showScripts, showServer;
+        [SerializeField] private bool showWorkloads = true, showStats, showTitleData, showScripts, showServer, showEconomy;
 
         // Everything below is per-window memory only: never serialized, never written to disk.
         [NonSerialized] private EnluEditorAuth? _auth;
@@ -62,6 +62,18 @@ namespace Enlu.Editor
         [NonSerialized] private string _wlName = "arena", _wlImage = string.Empty, _wlPort = "game", _wlProto = "udp";
         [NonSerialized] private int _wlContainerPort = 7777, _wlStandby = 1, _wlMax = 10, _wlMemory = 1024;
         [NonSerialized] private float _wlCpu = 1f;
+        [NonSerialized] private List<Dictionary<string, object?>>? _currencies;
+        [NonSerialized] private List<Dictionary<string, object?>> _catalog = new List<Dictionary<string, object?>>();
+        [NonSerialized] private string _curCode = string.Empty, _curName = string.Empty;
+        [NonSerialized] private long _curInitial, _curMax;
+        [NonSerialized] private string _itemId = string.Empty, _itemName = string.Empty;
+        [NonSerialized] private int _itemCurrency;
+        [NonSerialized] private long _itemPrice = 100;
+        [NonSerialized] private bool _itemStackable = true, _itemConsumable;
+        [NonSerialized] private Dictionary<string, object?>? _itemEditing;
+        [NonSerialized] private string _grantPlayer = string.Empty, _grantNote = "Granted from the Unity Editor";
+        [NonSerialized] private int _grantItem, _grantItemCount = 1, _grantCurrency;
+        [NonSerialized] private long _grantAmount = 100;
 
         /// <summary>Opens the window.</summary>
         [MenuItem("Tools/ENLU/Account", false, 1)]
@@ -207,6 +219,8 @@ namespace Enlu.Editor
             }
             _titleOriginal = null;
             _titleJson = string.Empty;
+            _currencies = null;
+            _catalog.Clear();
         }
 
         /* ------------------------------------ GUI ------------------------------------ */
@@ -467,6 +481,9 @@ namespace Enlu.Editor
             showScripts = EditorGUILayout.Foldout(showScripts, "Cloud scripts", true);
             if (showScripts) DrawScripts();
 
+            showEconomy = EditorGUILayout.Foldout(showEconomy, "Economy", true);
+            if (showEconomy) DrawEconomy();
+
             showServer = EditorGUILayout.Foldout(showServer, "Dedicated server fleet", true);
             if (showServer) DrawServerHelper();
         }
@@ -617,6 +634,206 @@ namespace Enlu.Editor
             }
             if (_fnOutput.Length > 0) EditorGUILayout.SelectableLabel(_fnOutput, EditorStyles.helpBox, GUILayout.MinHeight(60));
         }
+
+        /* --------------------------------- economy --------------------------------- */
+
+        private async Task LoadEconomyAsync(CancellationToken ct)
+        {
+            var api = new EnluDashboardApi(_auth!);
+            _currencies = await api.ListCurrenciesAsync(selectedApp, ct);
+            _catalog = await api.ListCatalogAsync(selectedApp, ct);
+        }
+
+        private string[] CurrencyCodes() => (_currencies ?? new List<Dictionary<string, object?>>()).Select(c => EnluJson.GetString(c, "code") ?? "").ToArray();
+
+        private static string Amounts(Dictionary<string, object?>? map) =>
+            map == null || map.Count == 0 ? "-" : string.Join(", ", map.Select(kv => kv.Key + " " + EnluJson.ToLong(kv.Value)));
+
+        private void DrawEconomy()
+        {
+            EditorGUILayout.LabelField("Currencies, a simple item editor and a grant tester. Use the dashboard for stores, bundles, IAP products, achievements and segments.",
+                EditorStyles.wordWrappedMiniLabel);
+            if (_currencies == null)
+            {
+                using (new EditorGUI.DisabledScope(_busy != null))
+                {
+                    if (GUILayout.Button("Load economy")) Run("Loading economy…", LoadEconomyAsync);
+                }
+                return;
+            }
+            var codes = CurrencyCodes();
+            DrawCurrencies(codes);
+            DrawCatalog(codes);
+            DrawGrantTester(codes);
+            using (new EditorGUI.DisabledScope(_busy != null))
+            {
+                if (GUILayout.Button("Reload economy")) Run("Loading economy…", LoadEconomyAsync);
+            }
+        }
+
+        private void DrawCurrencies(string[] codes)
+        {
+            EditorGUILayout.LabelField("Currencies", EditorStyles.miniBoldLabel);
+            foreach (var c in _currencies!)
+            {
+                var max = EnluJson.Get(c, "max");
+                EditorGUILayout.LabelField(EnluJson.GetString(c, "code") ?? "", (EnluJson.GetString(c, "name") ?? "") + ", start " + EnluJson.GetLong(c, "initial") +
+                    (EnluJson.IsNumber(max) ? ", max " + EnluJson.ToLong(max) : "") + (EnluJson.IsNumber(EnluJson.Get(c, "rechargeRate")) ? ", recharges" : ""));
+            }
+            using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+            {
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    _curCode = EditorGUILayout.TextField("Code / name", _curCode).ToUpperInvariant();
+                    _curName = EditorGUILayout.TextField(_curName);
+                }
+                _curInitial = EditorGUILayout.LongField("Starting balance", _curInitial);
+                _curMax = EditorGUILayout.LongField("Max (0 = none)", _curMax);
+                var exists = codes.Contains(_curCode);
+                var valid = System.Text.RegularExpressions.Regex.IsMatch(_curCode, "^[A-Z][A-Z0-9]{1,7}$") && _curName.Trim().Length > 0;
+                using (new EditorGUI.DisabledScope(_busy != null || !valid))
+                {
+                    if (GUILayout.Button(exists ? "Update currency" : "Create currency"))
+                    {
+                        var code = _curCode;
+                        Run("Saving currency…", async ct =>
+                        {
+                            await new EnluDashboardApi(_auth!).SaveCurrencyAsync(selectedApp, code, _curName.Trim(), _curInitial, _curMax > 0 ? _curMax : (long?)null, exists, ct);
+                            await LoadEconomyAsync(ct);
+                            _info = "Currency " + code + " saved.";
+                        });
+                    }
+                }
+            }
+        }
+
+        private void DrawCatalog(string[] codes)
+        {
+            EditorGUILayout.LabelField("Catalog (" + _catalog.Count + ")", EditorStyles.miniBoldLabel);
+            foreach (var item in _catalog)
+            {
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    var flags = (EnluJson.GetBool(item, "stackable") ? ", stackable" : "") + (EnluJson.GetBool(item, "consumable") ? ", consumable" : "") +
+                                (EnluJson.GetBool(item, "enabled", true) ? "" : ", disabled") + (EnluJson.GetObject(item, "bundle") != null ? ", bundle" : "");
+                    EditorGUILayout.LabelField(EnluJson.GetString(item, "itemId") ?? "", (EnluJson.GetString(item, "name") ?? "") + "  " + Amounts(EnluJson.GetObject(item, "prices")) + flags);
+                    if (GUILayout.Button("Edit", GUILayout.Width(50))) EditItem(item, codes);
+                }
+            }
+            using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+            {
+                using (new EditorGUI.DisabledScope(_itemEditing != null))
+                {
+                    _itemId = EditorGUILayout.TextField("Item id", _itemId);
+                }
+                _itemName = EditorGUILayout.TextField("Name", _itemName);
+                if (codes.Length == 0)
+                {
+                    EditorGUILayout.HelpBox("Create a currency first to give items a price.", MessageType.None);
+                }
+                else
+                {
+                    using (new EditorGUILayout.HorizontalScope())
+                    {
+                        _itemPrice = EditorGUILayout.LongField("Price", _itemPrice);
+                        _itemCurrency = EditorGUILayout.Popup(Mathf.Clamp(_itemCurrency, 0, codes.Length - 1), codes, GUILayout.Width(70));
+                    }
+                }
+                _itemStackable = EditorGUILayout.Toggle("Stackable", _itemStackable);
+                _itemConsumable = EditorGUILayout.Toggle(new GUIContent("Consumable", "Players may consume it from the client."), _itemConsumable);
+                var validItem = System.Text.RegularExpressions.Regex.IsMatch(_itemId, "^[a-z][a-z0-9_.-]{0,63}$") && _itemName.Trim().Length > 0 && codes.Length > 0 && _itemPrice >= 0;
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    using (new EditorGUI.DisabledScope(_busy != null || !validItem))
+                    {
+                        if (GUILayout.Button(_itemEditing != null ? "Update item" : "Create item"))
+                        {
+                            var currency = codes[Mathf.Clamp(_itemCurrency, 0, codes.Length - 1)];
+                            var editing = _itemEditing;
+                            var itemId = _itemId;
+                            Run("Saving item…", async ct =>
+                            {
+                                await new EnluDashboardApi(_auth!).SaveSimpleItemAsync(selectedApp, itemId, _itemName.Trim(), currency, _itemPrice,
+                                    _itemStackable, _itemConsumable, editing, ct);
+                                await LoadEconomyAsync(ct);
+                                _info = "Item " + itemId + " saved.";
+                                _itemEditing = null;
+                            });
+                        }
+                    }
+                    if (_itemEditing != null && GUILayout.Button("New item", GUILayout.Width(80)))
+                    {
+                        _itemEditing = null;
+                        _itemId = string.Empty;
+                        _itemName = string.Empty;
+                    }
+                }
+            }
+        }
+
+        private void DrawGrantTester(string[] codes)
+        {
+            EditorGUILayout.LabelField("Grant to player (testing)", EditorStyles.miniBoldLabel);
+            using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+            {
+                _grantPlayer = EditorGUILayout.TextField(new GUIContent("Player", "A player id (pl_…), or a custom id, email or name to search."), _grantPlayer);
+                var itemIds = new[] { "(no item)" }.Concat(_catalog.Select(i => EnluJson.GetString(i, "itemId") ?? "")).ToArray();
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    _grantItem = EditorGUILayout.Popup("Item", Mathf.Clamp(_grantItem, 0, itemIds.Length - 1), itemIds);
+                    _grantItemCount = Mathf.Max(1, EditorGUILayout.IntField(_grantItemCount, GUILayout.Width(50)));
+                }
+                var currencyChoices = new[] { "(no currency)" }.Concat(codes).ToArray();
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    _grantCurrency = EditorGUILayout.Popup("Currency", Mathf.Clamp(_grantCurrency, 0, currencyChoices.Length - 1), currencyChoices);
+                    _grantAmount = EditorGUILayout.LongField(_grantAmount, GUILayout.Width(80));
+                }
+                _grantNote = EditorGUILayout.TextField("Note", _grantNote);
+                var anything = _grantItem > 0 || (_grantCurrency > 0 && _grantAmount != 0);
+                using (new EditorGUI.DisabledScope(_busy != null || _grantPlayer.Trim().Length == 0 || !anything))
+                {
+                    if (GUILayout.Button("Grant"))
+                    {
+                        var item = _grantItem > 0 ? itemIds[_grantItem] : null;
+                        var currency = _grantCurrency > 0 ? currencyChoices[_grantCurrency] : null;
+                        var who = _grantPlayer;
+                        Run("Granting…", async ct =>
+                        {
+                            var api = new EnluDashboardApi(_auth!);
+                            var player = await api.FindPlayerIdAsync(selectedApp, who, ct);
+                            if (player == null)
+                            {
+                                _error = "No player matches '" + who + "'.";
+                                return;
+                            }
+                            var r = await api.GrantAsync(selectedApp, player, item, _grantItemCount, currency, _grantAmount, _grantNote, ct);
+                            var clipped = EnluJson.GetObject(r, "clipped");
+                            _info = "Granted to " + player + ". Balances: " + Amounts(EnluJson.GetObject(r, "currencies")) +
+                                    (clipped != null && clipped.Count > 0 ? ". Clipped by max: " + Amounts(clipped) : "");
+                        });
+                    }
+                }
+            }
+        }
+
+        private void EditItem(Dictionary<string, object?> item, string[] codes)
+        {
+            _itemEditing = item;
+            _itemId = EnluJson.GetString(item, "itemId") ?? string.Empty;
+            _itemName = EnluJson.GetString(item, "name") ?? string.Empty;
+            _itemStackable = EnluJson.GetBool(item, "stackable");
+            _itemConsumable = EnluJson.GetBool(item, "consumable");
+            var prices = EnluJson.GetObject(item, "prices");
+            if (prices != null && prices.Count > 0)
+            {
+                var first = prices.First();
+                _itemCurrency = Math.Max(0, Array.IndexOf(codes, first.Key));
+                _itemPrice = EnluJson.ToLong(first.Value);
+                if (prices.Count > 1) _info = "This item has several prices; saving here keeps only the one shown. Edit multi-currency prices in the dashboard.";
+            }
+        }
+
 
         private void DrawServerHelper()
         {

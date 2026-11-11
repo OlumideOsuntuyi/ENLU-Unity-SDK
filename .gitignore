@@ -36,6 +36,9 @@ ExportedObj/
 .consulo/
 *.swp
 *~
+# Unity hides sample folders with a trailing "~"; ship them.
+!Samples~/
+!Samples~/**
 
 # OS files
 .DS_Store

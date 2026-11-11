@@ -69,6 +69,21 @@ namespace Enlu
         /// <summary><c>POST /sessions</c></summary>
         public string Sessions() => U(null, "sessions");
 
+        /// <summary><c>GET /catalog[?storeId=]</c></summary>
+        public string Catalog(string? storeId = null) => U(new[] { Q("storeId", string.IsNullOrEmpty(storeId) ? null : storeId) }, "catalog");
+        /// <summary><c>GET /currencies</c></summary>
+        public string Currencies() => U(null, "currencies");
+        /// <summary><c>GET /inventory</c></summary>
+        public string Inventory() => U(null, "inventory");
+        /// <summary><c>POST /purchase</c></summary>
+        public string Purchase() => U(null, "purchase");
+        /// <summary><c>POST /inventory/:instance/consume</c></summary>
+        public string Consume(string instanceId) => U(null, "inventory", instanceId, "consume");
+        /// <summary><c>POST /purchases/validate</c></summary>
+        public string ValidateReceipt() => U(null, "purchases", "validate");
+        /// <summary><c>GET /achievements</c></summary>
+        public string Achievements() => U(null, "achievements");
+
         internal static IEnumerable<KeyValuePair<string, string?>>? KeysQuery(IEnumerable<string>? keys)
         {
             if (keys == null) return null;
@@ -133,5 +148,27 @@ namespace Enlu
         public string Events() => U(null, "events");
         /// <summary><c>POST /functions/:fn</c></summary>
         public string Function(string name) => U(null, "functions", name);
+
+        /// <summary><c>GET /players/:player/inventory</c></summary>
+        public string Inventory(string playerId) => U(null, "players", playerId, "inventory");
+        /// <summary><c>POST /players/:player/inventory/grant</c></summary>
+        public string Grant(string playerId) => U(null, "players", playerId, "inventory", "grant");
+        /// <summary><c>POST /players/:player/inventory/:instance/consume</c></summary>
+        public string Consume(string playerId, string instanceId) => U(null, "players", playerId, "inventory", instanceId, "consume");
+        /// <summary><c>POST /players/:player/inventory/:instance/transfer</c></summary>
+        public string Transfer(string playerId, string instanceId) => U(null, "players", playerId, "inventory", instanceId, "transfer");
+        /// <summary><c>DELETE /players/:player/inventory/:instance[?count=]</c></summary>
+        public string Revoke(string playerId, string instanceId, int? count) =>
+            U(new[] { Q("count", count.HasValue ? count.Value.ToString(CultureInfo.InvariantCulture) : null) }, "players", playerId, "inventory", instanceId);
+        /// <summary><c>POST /players/:player/currencies/:code</c></summary>
+        public string PlayerCurrency(string playerId, string code) => U(null, "players", playerId, "currencies", code);
+        /// <summary><c>POST /players/:player/purchase</c></summary>
+        public string PlayerPurchase(string playerId) => U(null, "players", playerId, "purchase");
+        /// <summary><c>GET /players/:player/achievements</c></summary>
+        public string PlayerAchievements(string playerId) => U(null, "players", playerId, "achievements");
+        /// <summary><c>POST /players/:player/achievements/:achievement/unlock</c></summary>
+        public string UnlockAchievement(string playerId, string achievementId) => U(null, "players", playerId, "achievements", achievementId, "unlock");
+        /// <summary><c>GET /players/:player/segments</c></summary>
+        public string PlayerSegments(string playerId) => U(null, "players", playerId, "segments");
     }
 }
